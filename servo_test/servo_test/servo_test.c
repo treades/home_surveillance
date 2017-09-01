@@ -10,6 +10,7 @@
  */ 
 
 #include <avr/io.h>
+#include <stdlib.h>
 
 //These defines, UART_Init, and UART_trans are just from the 328P data sheet
 //UART will just be used for debugging ADC from the potentiometers
@@ -25,27 +26,61 @@ void UART_Init(unsigned int ubrr){
 }
 
 //Transmit a byte over UART
-void UART_trans(unsigned char data){
+void UART_trans_byte(unsigned char data){
 	while(!(UCSR0A & (1<<UDRE0)));
 	UDR0 = data;
 }
 
-//transmit a full string over UART
+//Transmit a full string over UART
 void UART_trans_string(const char* str){
 	while(*str){
-		UART_trans(*str);
+		UART_trans_byte(*str);
 		str++;
 	}
 }
 
+//Analog to Digital Conversion 
+void init_ADC(){
+	ADCSRA = (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0) ; //Prescale by 128
+	ADMUX = (1<<ADLAR) | (1<<REFS0); //left adjust (only need 8 bits) | use internal AREF
+}
+
+void doADC(int pin){
+	ADCSRA |= (1<<ADSC); ///start conversion
+	switch(pin){
+		case(0):
+		ADMUX &= ~(1<<MUX0);
+		break;
+		
+		case(1):
+		ADMUX |= (1<<MUX0);
+		break;
+	}
+}
 
 int main(void)
 {
     /* Replace with your application code */
 	UART_Init(MYUBBR);
+	init_ADC();
 	
     while (1){
-		UART_trans_string("hello world!\r\n");
+		
+		//Debugging: Print ADC values for pot0 and pot1 to serial
+		char buffer [4];
+		
+		UART_trans_string("POT0: ");
+		doADC(0);
+		itoa(ADCH,buffer,10);
+		UART_trans_string(buffer);
+		
+		UART_trans_string("  POT1: ");
+		doADC(1);
+		itoa(ADCH,buffer,10);
+		UART_trans_string(buffer);
+
+		UART_trans_string("\r\n");
+		
     }
 }
 
