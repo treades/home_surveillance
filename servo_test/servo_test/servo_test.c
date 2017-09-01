@@ -11,6 +11,7 @@
 
 #include <avr/io.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 //These defines, UART_Init, and UART_trans are just from the 328P data sheet
 //UART will just be used for debugging ADC from the potentiometers
@@ -58,26 +59,44 @@ void doADC(int pin){
 	}
 }
 
+//Pulse width modulation using timer 1
+void init_PWM(){
+	DDRB |= 1<<DDB2;
+	TCCR1A = (1<<WGM11) | (1<<WGM10) | (1<<COM1B1);
+	TCCR1B = (1<<WGM12) | (1<<WGM13) | (1<<CS11);
+	OCR1A = 0x9C3F;
+	//OCR1B = 0xBB8; //initial value (middle)
+}
+
 int main(void)
 {
     /* Replace with your application code */
 	UART_Init(MYUBBR);
 	init_ADC();
+	init_PWM();
 	
     while (1){
 		
 		//Debugging: Print ADC values for pot0 and pot1 to serial
 		char buffer [4];
 		
-		UART_trans_string("POT0: ");
+		//PAN 
 		doADC(0);
+		double panAngle = 2000+( (2000/255)*ADCH );
+		OCR1B = (uint16_t)panAngle;
+		
+		UART_trans_string("POT0: ");
 		itoa(ADCH,buffer,10);
 		UART_trans_string(buffer);
 		
-		UART_trans_string("  POT1: ");
-		doADC(1);
-		itoa(ADCH,buffer,10);
-		UART_trans_string(buffer);
+		
+		//TILT
+		//doADC(1);
+		
+		
+		//UART_trans_string("  POT1: ");
+		//itoa(ADCH,buffer,10);
+		//UART_trans_string(buffer);
 
 		UART_trans_string("\r\n");
 		
