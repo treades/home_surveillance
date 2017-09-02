@@ -47,7 +47,6 @@ void init_ADC(){
 }
 
 void doADC(int pin){
-	ADCSRA |= (1<<ADSC); ///start conversion
 	switch(pin){
 		case(0):
 		ADMUX &= ~(1<<MUX0);
@@ -57,15 +56,17 @@ void doADC(int pin){
 		ADMUX |= (1<<MUX0);
 		break;
 	}
+	ADCSRA |= (1<<ADSC); ///start conversion
+	while(ADCSRA & (1<<ADSC)); //busy wait while conversion happening
 }
 
 //Pulse width modulation using timer 1
 void init_PWM(){
+	DDRB |= 1<<DDB1;
 	DDRB |= 1<<DDB2;
-	TCCR1A = (1<<WGM11) | (1<<WGM10) | (1<<COM1B1);
+	TCCR1A = (1<<WGM11) | (1<<COM1A1) | (1<<COM1B1);
 	TCCR1B = (1<<WGM12) | (1<<WGM13) | (1<<CS11);
-	OCR1A = 0x9C3F;
-	//OCR1B = 0xBB8; //initial value (middle)
+	ICR1 = 0x9C3F;
 }
 
 int main(void)
@@ -74,16 +75,16 @@ int main(void)
 	UART_Init(MYUBBR);
 	init_ADC();
 	init_PWM();
-	
+	char buffer [4];
     while (1){
 		
 		//Debugging: Print ADC values for pot0 and pot1 to serial
-		char buffer [4];
+
 		
 		//PAN 
 		doADC(0);
 		double panAngle = 2000+( (2000/255)*ADCH );
-		OCR1B = (uint16_t)panAngle;
+		OCR1A = (uint16_t)panAngle;
 		
 		UART_trans_string("POT0: ");
 		itoa(ADCH,buffer,10);
@@ -91,12 +92,13 @@ int main(void)
 		
 		
 		//TILT
-		//doADC(1);
+		doADC(1);
+		double tiltAngle = 2000+( (2000/255)*ADCH );
+		OCR1B = (uint16_t)tiltAngle;
 		
-		
-		//UART_trans_string("  POT1: ");
-		//itoa(ADCH,buffer,10);
-		//UART_trans_string(buffer);
+		UART_trans_string("  POT1: ");
+		itoa(ADCH,buffer,10);
+		UART_trans_string(buffer);
 
 		UART_trans_string("\r\n");
 		
