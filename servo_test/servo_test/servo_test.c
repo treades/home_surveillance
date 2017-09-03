@@ -2,9 +2,9 @@
  * servo_test.c
  *
  * Created: 8/31/2017 6:48:27 PM
- * Author : troye
+ * Author : Troy Eades (troyeades@gmail.com)
  *
- * So this is just a test of the pan/tilt device using two potentiometers. 
+ * So this is just a test of the pan/tilt device using two potentiometers and an ATmega328p. 
  * I'm not going to use a separate power supply, so it is entirely possible that I 
  * am going to totally ruin something. Hopefully that will not be the case...
  */ 
@@ -40,10 +40,14 @@ void UART_trans_string(const char* str){
 	}
 }
 
-//Analog to Digital Conversion 
+/*Analog to Digital Conversion 
+* Prescaler = 128
+* Left adjust (8 bits)
+* use internal AREF
+*/
 void init_ADC(){
-	ADCSRA = (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0) ; //Prescale by 128
-	ADMUX = (1<<ADLAR) | (1<<REFS0); //left adjust (only need 8 bits) | use internal AREF
+	ADCSRA = (1<<ADEN) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0); 
+	ADMUX = (1<<ADLAR) | (1<<REFS0); 
 }
 
 void doADC(int pin){
@@ -60,32 +64,34 @@ void doADC(int pin){
 	while(ADCSRA & (1<<ADSC)); //busy wait while conversion happening
 }
 
-//Pulse width modulation using timer 1
+/*Pulse width modulation using timer 1
+* Fast PWM with ICR1 for TOP
+* Prescaler = 8
+*/
 void init_PWM(){
 	DDRB |= 1<<DDB1;
 	DDRB |= 1<<DDB2;
 	TCCR1A = (1<<WGM11) | (1<<COM1A1) | (1<<COM1B1);
 	TCCR1B = (1<<WGM12) | (1<<WGM13) | (1<<CS11);
-	ICR1 = 0x9C3F;
+	ICR1 = 0x9C40; //40000
 }
+
 
 int main(void)
 {
-    /* Replace with your application code */
+
 	UART_Init(MYUBBR);
 	init_ADC();
 	init_PWM();
-	char buffer [4];
+	char buffer [4]; //for printing to serial
+	
     while (1){
 		
-		//Debugging: Print ADC values for pot0 and pot1 to serial
-
-		
-		//PAN 
+		//PAN
 		doADC(0);
-		double panAngle = 2000+( (2000/255)*ADCH );
+		double panAngle = 1500+( (3000/255)*ADCH );
 		OCR1A = (uint16_t)panAngle;
-		
+	
 		UART_trans_string("POT0: ");
 		itoa(ADCH,buffer,10);
 		UART_trans_string(buffer);
@@ -93,7 +99,7 @@ int main(void)
 		
 		//TILT
 		doADC(1);
-		double tiltAngle = 2000+( (2000/255)*ADCH );
+		double tiltAngle = 1500+( (3000/255)*ADCH );
 		OCR1B = (uint16_t)tiltAngle;
 		
 		UART_trans_string("  POT1: ");
